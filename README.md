@@ -176,6 +176,8 @@ TIM2가 STEP 펄스를 출력하고, TIM5를 **외부 클럭 모드 1의 슬레�
 
 ### ArUco 마커 인식
 
+<p align="center"><img src="images/marker_detection.png" width="520" alt="ArUco 마커 인식 화면: 마커 ID, 위치(x, y), yaw 각도 표시"></p>
+
 - 카메라를 차체 아래에 바닥 방향으로 달아서 그늘지고 어두운 환경이라, 적외선 조명이 달린 NoIR 카메라를 사용해 어두운 곳에서도 마커를 인식하도록 함. 다만 천장 조명이 마커에 반사되면 인식이 끊기는 경우가 있어, 마커에 반사 방지 테이프를 붙여 해결
 - Picamera2로 프레임을 받아 OpenCV ArUco(`DICT_4X4_250`, 15 mm 마커)로 검출
 - 캘리브레이션 데이터로 왜곡 보정 후 `solvePnP`로 마커의 x, y 위치(mm)와 yaw 각도 추정
