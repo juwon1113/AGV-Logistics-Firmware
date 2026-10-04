@@ -10,7 +10,7 @@
 | 인원 | 4명 (졸업작품) |
 | 담당 | 임베디드 펌웨어 및 소프트웨어 개발 |
 | MCU | STM32 Nucleo-F767ZI (HAL, STM32CubeIDE) |
-| 비전 | Raspberry Pi 5 (Ubuntu), Pi Camera, OpenCV |
+| 비전 | Raspberry Pi 5 (Ubuntu), NoIR 카메라, OpenCV |
 
 ## 시연 영상
 
@@ -29,7 +29,7 @@
 | --- | --- |
 | 하드웨어 설계 | 팀원 |
 | GUI 개발 | 팀원 |
-| 시스템 통합, 디지털 트윈 | 팀원 |
+| 시스템 통합 (서버·경로 계획·디지털 트윈) | 팀원 |
 | **임베디드 펌웨어 및 소프트웨어** | **백주원 (본인)** |
 
 ### 내가 맡은 부분
@@ -213,7 +213,7 @@ TIM2가 STEP 펄스를 출력하고, TIM5를 **외부 클럭 모드 1의 슬레�
 - 제자리 회전 후 각도 오차 ±1° 이내 (오차 1° 이내가 100 ms 유지되면 완료로 판단)
 - AGV 2대 운용 시 5분 동안 작업자 주문 약 2건 처리
 - 전체 경로 반복 주행 5회 중 4회 성공. 실패 1회는 주행 중 마커 인식 화면에서 검출 표시가 사라진 것으로 천장 조명 반사가 원인임을 확인하고, 반사 방지 테이프로 해결
-- 디버깅은 STM32 디버그 로그(100 ms마다 목표·현재 yaw, 좌우 PWM, 엔코더)와, 통합 담당 팀원이 띄운 마커 인식 화면을 함께 보며 진행
+- 디버깅은 STM32 디버그 로그(100 ms마다 목표·현재 yaw, 좌우 PWM, 엔코더)와, 통합 담당 팀원이 띄운 마커 인식 프로그램(본인 작성) 화면을 함께 보며 진행
 - 최종 시연 테스트 통과
 
 ### 테스트 환경
@@ -236,7 +236,7 @@ TIM2가 STEP 펄스를 출력하고, TIM5를 **외부 클럭 모드 1의 슬레�
 
 ## 협업
 
-펌웨어를 맡으면서 서버와 하드웨어 담당 팀원 사이에서 양쪽의 요구를 펌웨어로 연결했습니다.
+펌웨어를 맡으면서 시스템 통합 담당 팀원과 하드웨어 담당 팀원 사이에서 양쪽의 요구를 펌웨어로 연결했습니다.
 
 - **시스템 통합 담당 팀원과**: 경로 계획 결과를 로봇에 전달하는 명령 코드표와 ACK/DONE 이벤트 규격을 함께 정하고, 펌웨어가 이 규격대로 명령을 받아 동작하도록 구현했습니다. 통합 테스트 중 이벤트 유실 문제가 보고되어 송신 방식도 조정했습니다.
 - **하드웨어 담당 팀원과**: AGV가 선반 밑으로 들어가 들어 올리는 구조라, 선반 설계에서 나온 위치 오차 ±15 mm를 펌웨어 정밀도 목표로 받아 주행 제어를 개선했습니다 (아래 2번).
@@ -292,6 +292,15 @@ TIM2가 STEP 펄스를 출력하고, TIM5를 **외부 클럭 모드 1의 슬레�
 
 두 로봇의 `main.c`는 구조가 같고 튜닝값만 다릅니다.
 
+| 파일 | 내용 | 작성 |
+| --- | --- | --- |
+| `robot1/main.c`, `robot2/main.c` | 상태 머신, 주행·리프트 제어, UART 수신 처리 | 직접 작성 (주변장치 초기화는 CubeMX 생성) |
+| `Core/Src/pid.c` | 범용 PID 제어기 (조건부 적분 anti-windup) | 직접 작성 |
+| `Core/Src/rpi_uart.c` | 라즈베리파이 프레임 파싱, 이벤트 송신 | 직접 작성 |
+| `Core/Src/BNO055.c` | BNO055 I2C 드라이버 | 오픈소스 [Afebia/BNO055-STM32-V2](https://github.com/Afebia/BNO055-STM32-V2) (MIT License) 사용, 분석하며 주석 추가 |
+| `calibration/main.c` | BNO055 캘리브레이션 후 오프셋을 플래시에 저장 | 직접 작성 |
+| `vision/opencv_aruco_marker_detection.py` | 마커 인식, UART 송수신 | 직접 작성 |
+
 ### 빌드 방법
 
 1. STM32CubeIDE에서 `firmware/AGV_Control.ioc`를 열고 코드 생성 (HAL 드라이버와 시작 코드가 생성됨)
@@ -305,15 +314,6 @@ TIM2가 STEP 펄스를 출력하고, TIM5를 **외부 클럭 모드 1의 슬레�
 - 필요 패키지: `picamera2`, `opencv-contrib-python` (ArUco), `numpy`, `pyserial`
 - 카메라 캘리브레이션 결과 파일 `camera_calibration.pkl`이 같은 폴더에 있어야 함
 - 실행: `python3 vision/opencv_aruco_marker_detection.py` (라즈베리파이 `/dev/ttyAMA0`, 115200 bps로 STM32와 통신)
-
-| 파일 | 내용 | 작성 |
-| --- | --- | --- |
-| `robot1/main.c`, `robot2/main.c` | 상태 머신, 주행·리프트 제어, UART 수신 처리 | 직접 작성 (주변장치 초기화는 CubeMX 생성) |
-| `Core/Src/pid.c` | 범용 PID 제어기 (조건부 적분 anti-windup) | 직접 작성 |
-| `Core/Src/rpi_uart.c` | 라즈베리파이 프레임 파싱, 이벤트 송신 | 직접 작성 |
-| `Core/Src/BNO055.c` | BNO055 I2C 드라이버 | 오픈소스 [Afebia/BNO055-STM32-V2](https://github.com/Afebia/BNO055-STM32-V2) (MIT License) 사용, 분석하며 주석 추가 |
-| `calibration/main.c` | BNO055 캘리브레이션 후 오프셋을 플래시에 저장 | 직접 작성 |
-| `vision/opencv_aruco_marker_detection.py` | 마커 인식, UART 송수신 | 직접 작성 |
 
 ### BNO055 캘리브레이션 절차
 
